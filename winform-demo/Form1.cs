@@ -59,16 +59,10 @@ public partial class Form1 : Form
             Width = 200,
             ToolTipText = "选择要显示的点云文件"
         };
+        fileComboBox.SelectedIndexChanged += FileComboBox_SelectedIndexChanged;
         SetupCustomComponents();
         this.DoubleBuffered = true;
         LoadAvailablePlyFiles();
-
-        // 应用程序启动时自动加载点云文件
-        string defaultPlyFile = "cloud_normal_smooth_0.ply";
-        if (File.Exists(defaultPlyFile))
-        {
-            LoadPointCloud(defaultPlyFile);
-        }
     }
 
     /// <summary>
@@ -165,6 +159,78 @@ public partial class Form1 : Form
     }
 
     /// <summary>
+    /// 加载可用的点云文件列表
+    /// </summary>
+    private void LoadAvailablePlyFiles()
+    {
+        try
+        {
+            // 获取 plys 目录的路径（使用相对路径）
+            string plysDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "plys");
+            plysDir = Path.GetFullPath(plysDir);  // 转换为完整路径
+
+            Console.WriteLine($"正在搜索目录: {plysDir}");  // 调试输出
+
+            // 如果目录不存在，创建它
+            if (!Directory.Exists(plysDir))
+            {
+                Directory.CreateDirectory(plysDir);
+                MessageBox.Show("已创建 plys 目录，请将点云文件放入此目录中。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            // 支持的文件扩展名
+            string[] extensions = new[] { "*.ply", "*.pcd", "*.txt", "*.xyz" };
+            var files = new List<string>();
+
+            // 获取 plys 目录中的所有支持的文件
+            foreach (string ext in extensions)
+            {
+                var foundFiles = Directory.GetFiles(plysDir, ext)
+                    .Select(f => Path.GetFileName(f))
+                    .Where(f => !string.IsNullOrEmpty(f))
+                    .ToList();
+                files.AddRange(foundFiles);
+                Console.WriteLine($"使用模式 {ext} 找到文件数: {foundFiles.Count}");  // 调试输出
+            }
+
+            // 更新下拉框
+            fileComboBox.Items.Clear();
+            var distinctFiles = files.Distinct().OrderBy(f => f).ToList();
+
+            Console.WriteLine($"总共找到不重复文件数: {distinctFiles.Count}");  // 调试输出
+            foreach (var file in distinctFiles)
+            {
+                Console.WriteLine($"找到文件: {file}");  // 调试输出
+            }
+
+            if (distinctFiles.Any())
+            {
+                fileComboBox.Items.AddRange(distinctFiles.ToArray());
+
+                // 如果当前有选中的文件，尝试保持选中
+                if (!string.IsNullOrEmpty(currentFileName) && distinctFiles.Contains(currentFileName))
+                {
+                    fileComboBox.SelectedItem = currentFileName;
+                }
+                else
+                {
+                    fileComboBox.SelectedIndex = 0;  // 默认选择第一个文件
+                }
+            }
+            else
+            {
+                MessageBox.Show($"plys 目录中未找到支持的点云文件。\n目录路径: {plysDir}\n支持的格式：PLY、PCD、TXT、XYZ",
+                    "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"加载文件列表时出错：{ex.Message}\n{ex.StackTrace}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    /// <summary>
     /// 导入文件按钮点击事件处理
     /// </summary>
     private void ImportButton_Click(object? sender, EventArgs e)
@@ -179,19 +245,33 @@ public partial class Form1 : Form
             {
                 try
                 {
-                    string targetPath = Path.Combine(Application.StartupPath, Path.GetFileName(openFileDialog.FileName));
-                    if (File.Exists(targetPath))
+                    // 确保 plys 目录存在
+                    string plysDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "plys");
+                    plysDir = Path.GetFullPath(plysDir);
+
+                    if (!Directory.Exists(plysDir))
+                    {
+                        Directory.CreateDirectory(plysDir);
+                    }
+
+                    string fileName = Path.GetFileName(openFileDialog.FileName);
+                    string targetPath = Path.Combine(plysDir, fileName);
+
+                    if (File.Exists(targetPath) && targetPath != openFileDialog.FileName)
                     {
                         if (MessageBox.Show("文件已存在，是否覆盖？", "确认", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                         {
                             return;
                         }
                     }
-                    File.Copy(openFileDialog.FileName, targetPath, true);
-                    LoadAvailablePlyFiles();
 
-                    // 选择新导入的文件
-                    fileComboBox.SelectedItem = Path.GetFileName(targetPath);
+                    if (targetPath != openFileDialog.FileName)
+                    {
+                        File.Copy(openFileDialog.FileName, targetPath, true);
+                    }
+
+                    LoadAvailablePlyFiles();
+                    fileComboBox.SelectedItem = fileName;
                 }
                 catch (Exception ex)
                 {
@@ -202,77 +282,37 @@ public partial class Form1 : Form
     }
 
     /// <summary>
-    /// 加载可用的点云文件列表
-    /// </summary>
-    private void LoadAvailablePlyFiles()
-    {
-        try
-        {
-            // 支持的文件扩展名
-            string[] extensions = new[] { "*.ply", "*.pcd", "*.txt", "*.xyz" };
-            var files = new List<string>();
-
-            // 获取应用程序目录中的所有支持的文件
-            foreach (string ext in extensions)
-            {
-                files.AddRange(Directory.GetFiles(Application.StartupPath, ext)
-                    .Select(Path.GetFileName)
-                    .Where(f => f != null));
-            }
-
-            // 获取上级目录中的文件
-            string parentDir = Directory.GetParent(Application.StartupPath)?.FullName ?? "";
-            if (Directory.Exists(parentDir))
-            {
-                foreach (string ext in extensions)
-                {
-                    files.AddRange(Directory.GetFiles(parentDir, ext)
-                        .Select(Path.GetFileName)
-                        .Where(f => f != null));
-                }
-            }
-
-            // 更新下拉框
-            fileComboBox.Items.Clear();
-            if (files.Any())
-            {
-                fileComboBox.Items.AddRange(files.Distinct().ToArray());
-                fileComboBox.SelectedIndex = 0;
-            }
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"加载文件列表时出错：{ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-    }
-
-    /// <summary>
     /// 文件选择改变事件处理
     /// </summary>
     private void FileComboBox_SelectedIndexChanged(object? sender, EventArgs e)
     {
         if (fileComboBox.SelectedItem is string fileName)
         {
-            // 首先在应用程序目录中查找
-            string filePath = Path.Combine(Application.StartupPath, fileName);
-            if (!File.Exists(filePath))
+            try
             {
-                // 如果在应用程序目录中没有找到，则在上级目录中查找
-                string? parentDir = Directory.GetParent(Application.StartupPath)?.FullName;
-                if (parentDir != null)
+                string plysDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "plys");
+                plysDir = Path.GetFullPath(plysDir);
+                string filePath = Path.Combine(plysDir, fileName);
+
+                Console.WriteLine($"正在加载文件: {filePath}"); // 调试输出
+
+                if (File.Exists(filePath))
                 {
-                    filePath = Path.Combine(parentDir, fileName);
+                    currentFileName = fileName;
+                    LoadPointCloud(filePath);
+                    this.Invalidate(); // 强制重新渲染
+                    Console.WriteLine("文件加载完成，开始重新渲染"); // 调试输出
+                }
+                else
+                {
+                    MessageBox.Show($"找不到文件：{filePath}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    fileComboBox.Items.Remove(fileName);
+                    LoadAvailablePlyFiles();  // 重新加载文件列表
                 }
             }
-
-            if (File.Exists(filePath))
+            catch (Exception ex)
             {
-                currentFileName = fileName;
-                LoadPointCloud(filePath);
-            }
-            else
-            {
-                MessageBox.Show($"找不到文件：{fileName}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"加载文件时出错：{ex.Message}\n{ex.StackTrace}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
@@ -541,6 +581,7 @@ public partial class Form1 : Form
     {
         try
         {
+            Console.WriteLine($"开始加载点云文件: {filename}"); // 调试输出
             string extension = Path.GetExtension(filename).ToLower();
             switch (extension)
             {
@@ -556,11 +597,17 @@ public partial class Form1 : Form
                     throw new Exception("不支持的文件格式");
             }
 
-            this.Invalidate();
+            // 重置视图参数
+            rotationX = 0;
+            rotationY = 0;
+            scale = 1.0f;
+
+            this.Invalidate(); // 强制重新渲染
+            Console.WriteLine("点云加载完成"); // 调试输出
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"加载点云时出错：{ex.Message}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show($"加载点云时出错：{ex.Message}\n{ex.StackTrace}", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -569,6 +616,7 @@ public partial class Form1 : Form
     /// </summary>
     private void LoadPlyFile(string filename)
     {
+        Console.WriteLine($"开始解析PLY文件: {filename}"); // 调试输出
         string[] lines = File.ReadAllLines(filename);
         int vertexCount = 0;
         int currentLine = 0;
@@ -580,6 +628,7 @@ public partial class Form1 : Form
             if (line.StartsWith("element vertex"))
             {
                 vertexCount = int.Parse(line.Split(' ')[2]);
+                Console.WriteLine($"找到顶点数量: {vertexCount}"); // 调试输出
             }
             else if (line == "end_header")
             {
@@ -613,6 +662,7 @@ public partial class Form1 : Form
                 maxZ = Math.Max(maxZ, points[i, 2]);
             }
         }
+        Console.WriteLine($"PLY文件加载完成，点数: {vertexCount}"); // 调试输出
     }
 
     /// <summary>
