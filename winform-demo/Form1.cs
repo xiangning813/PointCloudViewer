@@ -38,14 +38,27 @@ public partial class Form1 : Form
     private float pointSize = 2;           // 点大小
     private bool showAxes = true;          // 是否显示坐标轴
     private bool showGrid = true;          // 是否显示网格
-    private Color pointColor = Color.White;
+    private Color[] pointColors = Array.Empty<Color>();  // 点云颜色数据
     private string currentFileName = "";    // 当前文件名
-    private float[]? pointColors;          // 用于存储点的颜色信息
     private float minX, maxX, minY, maxY, minZ, maxZ;  // 点云边界值
     private const float FOV = 60.0f;               // 视场角
     private const float NEAR_PLANE = 0.1f;        // 近裁剪面
     private const float FAR_PLANE = 1000.0f;      // 远裁剪面
+    private ColorMode colorMode = ColorMode.Height;  // 颜色模式
     public ToolStripComboBox fileComboBox = null!;  // 文件选择下拉框
+    private Panel infoPanel = null!;              // 信息面板
+    private Label infoLabel = null!;              // 信息标签
+
+    /// <summary>
+    /// 颜色渲染模式
+    /// </summary>
+    private enum ColorMode
+    {
+        Depth,      // 深度颜色
+        Height,     // 高度颜色
+        Rainbow,    // 彩虹颜色
+        Original    // 原始颜色（如果有）
+    }
 
     /// <summary>
     /// 构造函数
@@ -61,6 +74,7 @@ public partial class Form1 : Form
         };
         fileComboBox.SelectedIndexChanged += FileComboBox_SelectedIndexChanged;
         SetupCustomComponents();
+        SetupInfoPanel();
         this.DoubleBuffered = true;
         LoadAvailablePlyFiles();
     }
@@ -89,6 +103,25 @@ public partial class Form1 : Form
         ToolStripButton refreshButton = new ToolStripButton("刷新文件列表");
         refreshButton.Click += (s, e) => LoadAvailablePlyFiles();
         toolStrip.Items.Add(refreshButton);
+
+        toolStrip.Items.Add(new ToolStripSeparator());
+
+        // 添加颜色模式选择下拉框
+        ToolStripLabel colorModeLabel = new ToolStripLabel("颜色模式：");
+        toolStrip.Items.Add(colorModeLabel);
+
+        ToolStripComboBox colorModeComboBox = new ToolStripComboBox();
+        colorModeComboBox.Items.AddRange(new string[] { "高度", "深度", "彩虹", "原始" });
+        colorModeComboBox.SelectedIndex = 0;
+        colorModeComboBox.DropDownStyle = ComboBoxStyle.DropDownList;
+        colorModeComboBox.Width = 100;
+        colorModeComboBox.SelectedIndexChanged += (s, e) =>
+        {
+            colorMode = (ColorMode)colorModeComboBox.SelectedIndex;
+            UpdatePointColors();
+            this.Invalidate();
+        };
+        toolStrip.Items.Add(colorModeComboBox);
 
         toolStrip.Items.Add(new ToolStripSeparator());
 
@@ -122,40 +155,167 @@ public partial class Form1 : Form
         pointSizeTrackBar.ValueChanged += (s, e) => { pointSize = pointSizeTrackBar.Value; Invalidate(); };
         toolStrip.Items.Add(pointSizeTrackBar);
 
-        // 创建状态栏
-        StatusStrip statusStrip = new StatusStrip();
-        ToolStripStatusLabel fileLabel = new ToolStripStatusLabel();
-        ToolStripStatusLabel pointCountLabel = new ToolStripStatusLabel();
-        ToolStripStatusLabel viewInfoLabel = new ToolStripStatusLabel();
-        statusStrip.Items.AddRange(new ToolStripItem[] { fileLabel, pointCountLabel, viewInfoLabel });
-
         // 添加控件到窗体
         this.Controls.Add(toolStrip);
-        this.Controls.Add(statusStrip);
 
         // 设置布局
         toolStrip.Dock = DockStyle.Top;
-        statusStrip.Dock = DockStyle.Bottom;
 
         // 添加鼠标事件处理
         this.MouseDown += Form1_MouseDown;
         this.MouseMove += Form1_MouseMove;
         this.MouseUp += Form1_MouseUp;
         this.MouseWheel += Form1_MouseWheel;
+    }
 
-        // 更新状态栏信息
-        void UpdateStatusBar()
+    /// <summary>
+    /// 设置信息面板
+    /// </summary>
+    private void SetupInfoPanel()
+    {
+        // 创建信息面板
+        infoPanel = new Panel
         {
-            fileLabel.Text = $"文件: {currentFileName}";
-            pointCountLabel.Text = points != null ? $"点数: {points.GetLength(0)}" : "点数: 0";
-            viewInfoLabel.Text = $"缩放: {scale:F2} 旋转X: {rotationX:F1}° Y: {rotationY:F1}°";
+            Dock = DockStyle.Left,
+            Width = 200,
+            BackColor = Color.FromArgb(30, 30, 30)
+        };
+
+        // 创建信息标签
+        infoLabel = new Label
+        {
+            AutoSize = false,
+            Dock = DockStyle.Fill,
+            ForeColor = Color.White,
+            Font = new Font("微软雅黑", 9F),
+            Padding = new Padding(5)
+        };
+
+        // 添加标签到面板
+        infoPanel.Controls.Add(infoLabel);
+
+        // 添加面板到窗体
+        this.Controls.Add(infoPanel);
+
+        // 创建定时器更新信息
+        System.Windows.Forms.Timer infoUpdateTimer = new()
+        {
+            Interval = 100 // 100ms 更新一次
+        };
+
+        infoUpdateTimer.Tick += (s, e) =>
+        {
+            UpdateInfoLabel();
+        };
+
+        infoUpdateTimer.Start();
+    }
+
+    /// <summary>
+    /// 更新信息标签内容
+    /// </summary>
+    private void UpdateInfoLabel()
+    {
+        if (points != null)
+        {
+            infoLabel.Text = $"点云信息:\n\n" +
+                $"文件: {currentFileName}\n\n" +
+                $"点数: {points.GetLength(0)}\n" +
+                $"可见点数: {GetVisiblePointCount()}\n\n" +
+                $"坐标范围:\n" +
+                $"X范围: {minX:F3} 到 {maxX:F3}\n" +
+                $"Y范围: {minY:F3} 到 {maxY:F3}\n" +
+                $"Z范围: {minZ:F3} 到 {maxZ:F3}\n\n" +
+                $"视图信息:\n" +
+                $"旋转X: {rotationX:F1}°\n" +
+                $"旋转Y: {rotationY:F1}°\n" +
+                $"缩放: {scale:F2}\n\n" +
+                $"渲染模式: {GetColorModeName()}\n" +
+                $"点大小: {pointSize:F1}";
+        }
+        else
+        {
+            infoLabel.Text = "未加载点云文件";
+        }
+    }
+
+    /// <summary>
+    /// 获取当前颜色模式的名称
+    /// </summary>
+    private string GetColorModeName()
+    {
+        return colorMode switch
+        {
+            ColorMode.Height => "高度着色",
+            ColorMode.Depth => "深度着色",
+            ColorMode.Rainbow => "彩虹着色",
+            ColorMode.Original => "原始颜色",
+            _ => "未知"
+        };
+    }
+
+    /// <summary>
+    /// 获取可见点的数量
+    /// </summary>
+    private int GetVisiblePointCount()
+    {
+        if (points == null) return 0;
+
+        int count = 0;
+        int width = this.ClientSize.Width;
+        int height = this.ClientSize.Height;
+
+        // 计算变换矩阵
+        float aspect = (float)width / height;
+        Matrix4x4 projection = Matrix4x4.CreatePerspectiveFieldOfView(
+            FOV * (float)Math.PI / 180.0f,
+            aspect,
+            NEAR_PLANE,
+            FAR_PLANE
+        );
+
+        Matrix4x4 view = Matrix4x4.CreateTranslation(0, 0, -5) *
+                       Matrix4x4.CreateRotationX(rotationX * (float)Math.PI / 180.0f) *
+                       Matrix4x4.CreateRotationY(rotationY * (float)Math.PI / 180.0f);
+
+        float modelScale = 1.0f / Math.Max(Math.Max(maxX - minX, maxY - minY), maxZ - minZ);
+        Vector3 center = new Vector3(-(maxX + minX) / 2, -(maxY + minY) / 2, -(maxZ + minZ) / 2);
+        Matrix4x4 model = Matrix4x4.CreateTranslation(center) *
+                        Matrix4x4.CreateScale(modelScale * scale);
+
+        Matrix4x4 transform = model * view * projection;
+
+        // 计算可见点数量
+        for (int i = 0; i < points.GetLength(0); i++)
+        {
+            Vector4 point = new Vector4(
+                points[i, 0],
+                points[i, 1],
+                points[i, 2],
+                1.0f
+            );
+
+            point = Vector4.Transform(point, transform);
+
+            if (point.W != 0)
+            {
+                point.X /= point.W;
+                point.Y /= point.W;
+                point.Z /= point.W;
+            }
+
+            float screenX = (point.X + 1) * width / 2;
+            float screenY = (-point.Y + 1) * height / 2;
+
+            if (point.Z >= -1 && point.Z <= 1 &&
+                screenX >= 0 && screenX < width &&
+                screenY >= 0 && screenY < height)
+            {
+                count++;
+            }
         }
 
-        // 定期更新状态栏
-        System.Windows.Forms.Timer statusUpdateTimer = new System.Windows.Forms.Timer();
-        statusUpdateTimer.Interval = 100;
-        statusUpdateTimer.Tick += (s, e) => UpdateStatusBar();
-        statusUpdateTimer.Start();
+        return count;
     }
 
     /// <summary>
@@ -408,43 +568,41 @@ public partial class Form1 : Form
         Matrix4x4 transform = model * view * projection;
 
         // 绘制点云
-        using (SolidBrush brush = new SolidBrush(Color.White))
+        for (int i = 0; i < points.GetLength(0); i++)
         {
-            for (int i = 0; i < points.GetLength(0); i++)
+            Vector4 point = new Vector4(
+                points[i, 0],
+                points[i, 1],
+                points[i, 2],
+                1.0f
+            );
+
+            // 应用变换
+            point = Vector4.Transform(point, transform);
+
+            // 执行透视除法
+            if (point.W != 0)
             {
-                Vector4 point = new Vector4(
-                    points[i, 0],
-                    points[i, 1],
-                    points[i, 2],
-                    1.0f
-                );
+                point.X /= point.W;
+                point.Y /= point.W;
+                point.Z /= point.W;
+            }
 
-                // 应用变换
-                point = Vector4.Transform(point, transform);
+            // 转换到屏幕坐标
+            float screenX = (point.X + 1) * width / 2;
+            float screenY = (-point.Y + 1) * height / 2;
 
-                // 执行透视除法
-                if (point.W != 0)
+            // 只绘制在视野内的点
+            if (point.Z >= -1 && point.Z <= 1 &&
+                screenX >= 0 && screenX < width &&
+                screenY >= 0 && screenY < height)
+            {
+                // 使用预计算的颜色，并增加亮度
+                Color baseColor = pointColors[i];
+                using (SolidBrush brush = new SolidBrush(baseColor))
                 {
-                    point.X /= point.W;
-                    point.Y /= point.W;
-                    point.Z /= point.W;
-                }
-
-                // 转换到屏幕坐标
-                float screenX = (point.X + 1) * width / 2;
-                float screenY = (-point.Y + 1) * height / 2;
-
-                // 只绘制在视野内的点
-                if (point.Z >= -1 && point.Z <= 1 &&
-                    screenX >= 0 && screenX < width &&
-                    screenY >= 0 && screenY < height)
-                {
-                    // 根据深度计算颜色
-                    int intensity = (int)((point.Z + 1) * 127.5f);
-                    brush.Color = Color.FromArgb(255, intensity, intensity, intensity);
-
-                    // 根据深度计算点大小
-                    float size = pointSize * (1.0f - point.Z * 0.5f);
+                    // 根据深度计算点大小，并稍微增加基础大小
+                    float size = (pointSize + 0.5f) * (1.0f - point.Z * 0.5f);
                     e.Graphics.FillEllipse(brush,
                         screenX - size / 2,
                         screenY - size / 2,
@@ -464,14 +622,6 @@ public partial class Form1 : Form
         if (showGrid)
         {
             DrawGrid(e.Graphics, transform, width, height);
-        }
-
-        // 绘制信息
-        using (Font font = new Font("Arial", 10))
-        using (SolidBrush brush = new SolidBrush(Color.White))
-        {
-            string info = $"点数: {points.GetLength(0)} | 旋转: X={rotationX:F1}° Y={rotationY:F1}° | 缩放: {scale:F2}";
-            e.Graphics.DrawString(info, font, brush, 10, 10);
         }
     }
 
@@ -581,7 +731,7 @@ public partial class Form1 : Form
     {
         try
         {
-            Console.WriteLine($"开始加载点云文件: {filename}"); // 调试输出
+            Console.WriteLine($"开始加载点云文件: {filename}");
             string extension = Path.GetExtension(filename).ToLower();
             switch (extension)
             {
@@ -602,8 +752,11 @@ public partial class Form1 : Form
             rotationY = 0;
             scale = 1.0f;
 
-            this.Invalidate(); // 强制重新渲染
-            Console.WriteLine("点云加载完成"); // 调试输出
+            // 更新点云颜色
+            UpdatePointColors();
+
+            this.Invalidate();
+            Console.WriteLine("点云加载完成");
         }
         catch (Exception ex)
         {
@@ -712,6 +865,143 @@ public partial class Form1 : Form
             points[i, 1] = pointList[i].y;
             points[i, 2] = pointList[i].z;
         }
+    }
+
+    /// <summary>
+    /// 更新点云颜色
+    /// </summary>
+    private void UpdatePointColors()
+    {
+        if (points == null) return;
+
+        int pointCount = points.GetLength(0);
+        pointColors = new Color[pointCount];
+
+        switch (colorMode)
+        {
+            case ColorMode.Height:
+                // 根据高度（Y坐标）生成颜色
+                for (int i = 0; i < pointCount; i++)
+                {
+                    float normalizedHeight = (points[i, 1] - minY) / (maxY - minY);
+                    pointColors[i] = GetHeightColor(normalizedHeight);
+                }
+                break;
+
+            case ColorMode.Depth:
+                // 根据深度（Z坐标）生成颜色
+                for (int i = 0; i < pointCount; i++)
+                {
+                    float normalizedDepth = (points[i, 2] - minZ) / (maxZ - minZ);
+                    pointColors[i] = GetDepthColor(normalizedDepth);
+                }
+                break;
+
+            case ColorMode.Rainbow:
+                // 使用彩虹色谱
+                for (int i = 0; i < pointCount; i++)
+                {
+                    float normalizedValue = (float)i / pointCount;
+                    pointColors[i] = GetRainbowColor(normalizedValue);
+                }
+                break;
+
+            case ColorMode.Original:
+                // 使用白色或原始颜色（如果有）
+                for (int i = 0; i < pointCount; i++)
+                {
+                    pointColors[i] = Color.White;
+                }
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 获取高度对应的颜色
+    /// </summary>
+    private Color GetHeightColor(float normalizedHeight)
+    {
+        // 使用更鲜艳的颜色渐变：从蓝色到绿色到红色
+        if (normalizedHeight < 0.5f)
+        {
+            // 从蓝色渐变到绿色
+            float t = normalizedHeight * 2;
+            int blue = (int)((1 - t) * 255);
+            int green = (int)(t * 255);
+            return Color.FromArgb(255, 0, green, blue);
+        }
+        else
+        {
+            // 从绿色渐变到红色
+            float t = (normalizedHeight - 0.5f) * 2;
+            int green = (int)((1 - t) * 255);
+            int red = (int)(t * 255);
+            return Color.FromArgb(255, red, green, 0);
+        }
+    }
+
+    /// <summary>
+    /// 获取深度对应的颜色
+    /// </summary>
+    private Color GetDepthColor(float normalizedDepth)
+    {
+        // 使用更丰富的颜色渐变，从暖色到冷色
+        if (normalizedDepth < 0.5f)
+        {
+            // 近处使用暖色（红色到黄色）
+            float t = normalizedDepth * 2;
+            int red = 255;
+            int green = (int)(t * 255);
+            return Color.FromArgb(255, red, green, 0);
+        }
+        else
+        {
+            // 远处使用冷色（青色到蓝色）
+            float t = (normalizedDepth - 0.5f) * 2;
+            int green = 255;
+            int blue = (int)(t * 255);
+            return Color.FromArgb(255, 0, green, blue);
+        }
+    }
+
+    /// <summary>
+    /// 获取彩虹颜色
+    /// </summary>
+    private Color GetRainbowColor(float normalizedValue)
+    {
+        // 使用更鲜艳的彩虹色谱
+        float hue = normalizedValue * 360f;
+        return HSVToRGB(hue, 1f, 1f);  // 使用最大饱和度和亮度
+    }
+
+    /// <summary>
+    /// HSV转RGB颜色
+    /// </summary>
+    private Color HSVToRGB(float hue, float saturation, float value)
+    {
+        int hi = (int)(hue / 60) % 6;
+        float f = hue / 60 - hi;
+        float p = value * (1 - saturation);
+        float q = value * (1 - f * saturation);
+        float t = value * (1 - (1 - f) * saturation);
+
+        float r, g, b;
+        switch (hi)
+        {
+            case 0: r = value; g = t; b = p; break;
+            case 1: r = q; g = value; b = p; break;
+            case 2: r = p; g = value; b = t; break;
+            case 3: r = p; g = q; b = value; break;
+            case 4: r = t; g = p; b = value; break;
+            default: r = value; g = p; b = q; break;
+        }
+
+        // 提高颜色的亮度
+        r = Math.Min(1.0f, r * 1.2f);
+        g = Math.Min(1.0f, g * 1.2f);
+        b = Math.Min(1.0f, b * 1.2f);
+
+        return Color.FromArgb(255, (int)(r * 255), (int)(g * 255), (int)(b * 255));
     }
 }
 
