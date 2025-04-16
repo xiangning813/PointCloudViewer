@@ -44,7 +44,7 @@
 
 - Visual Studio 2022
 - .NET Framework 4.7.2
-- WPF (Windows Presentation Foundation)
+- Winform
 
 ## 贡献指南
 
