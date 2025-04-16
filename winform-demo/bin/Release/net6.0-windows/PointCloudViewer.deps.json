@@ -1,0 +1,65 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v6.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v6.0": {
+      "PointCloudViewer/1.0.0": {
+        "dependencies": {
+          "PclSharp": "1.8.1.20180820-beta07",
+          "System.Numerics.Vectors": "4.5.0"
+        },
+        "runtime": {
+          "PointCloudViewer.dll": {}
+        }
+      },
+      "PclSharp/1.8.1.20180820-beta07": {
+        "dependencies": {
+          "System.Numerics.Vectors": "4.5.0",
+          "System.Runtime.CompilerServices.Unsafe": "4.4.0",
+          "System.ValueTuple": "4.4.0"
+        }
+      },
+      "System.Numerics.Vectors/4.5.0": {},
+      "System.Runtime.CompilerServices.Unsafe/4.4.0": {},
+      "System.ValueTuple/4.4.0": {}
+    }
+  },
+  "libraries": {
+    "PointCloudViewer/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "PclSharp/1.8.1.20180820-beta07": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-Ehv2XEfbVCU4z0xhtDqpAhf2i5fYy1jDpfreI8ak/6sS8npH/1u3yf0mhRvMp+I59JoyyhEjcM1+8n6XyT1U9A==",
+      "path": "pclsharp/1.8.1.20180820-beta07",
+      "hashPath": "pclsharp.1.8.1.20180820-beta07.nupkg.sha512"
+    },
+    "System.Numerics.Vectors/4.5.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-QQTlPTl06J/iiDbJCiepZ4H//BVraReU4O4EoRw1U02H5TLUIT7xn3GnDp9AXPSlJUDyFs4uWjWafNX6WrAojQ==",
+      "path": "system.numerics.vectors/4.5.0",
+      "hashPath": "system.numerics.vectors.4.5.0.nupkg.sha512"
+    },
+    "System.Runtime.CompilerServices.Unsafe/4.4.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-9dLLuBxr5GNmOfl2jSMcsHuteEg32BEfUotmmUkmZjpR3RpVHE8YQwt0ow3p6prwA1ME8WqDVZqrr8z6H8G+Kw==",
+      "path": "system.runtime.compilerservices.unsafe/4.4.0",
+      "hashPath": "system.runtime.compilerservices.unsafe.4.4.0.nupkg.sha512"
+    },
+    "System.ValueTuple/4.4.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-BahUww/+mdP4ARCAh2RQhQTg13wYLVrBb9SYVgW8ZlrwjraGCXHGjo0oIiUfZ34LUZkMMR+RAzR7dEY4S1HeQQ==",
+      "path": "system.valuetuple/4.4.0",
+      "hashPath": "system.valuetuple.4.4.0.nupkg.sha512"
+    }
+  }
+}

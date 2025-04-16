@@ -1,0 +1,14 @@
+D:\net\wpf\winform-demo\obj\Debug\net8.0-windows\winform-demo.GeneratedMSBuildEditorConfig.editorconfig
+D:\net\wpf\winform-demo\obj\Debug\net8.0-windows\winform-demo.AssemblyInfoInputs.cache
+D:\net\wpf\winform-demo\obj\Debug\net8.0-windows\winform-demo.AssemblyInfo.cs
+D:\net\wpf\winform-demo\obj\Debug\net8.0-windows\winform-demo.csproj.CoreCompileInputs.cache
+D:\net\wpf\winform-demo\bin\Debug\net8.0-windows\winform-demo.exe
+D:\net\wpf\winform-demo\bin\Debug\net8.0-windows\winform-demo.deps.json
+D:\net\wpf\winform-demo\bin\Debug\net8.0-windows\winform-demo.runtimeconfig.json
+D:\net\wpf\winform-demo\bin\Debug\net8.0-windows\winform-demo.dll
+D:\net\wpf\winform-demo\bin\Debug\net8.0-windows\winform-demo.pdb
+D:\net\wpf\winform-demo\obj\Debug\net8.0-windows\winform-demo.dll
+D:\net\wpf\winform-demo\obj\Debug\net8.0-windows\refint\winform-demo.dll
+D:\net\wpf\winform-demo\obj\Debug\net8.0-windows\winform-demo.pdb
+D:\net\wpf\winform-demo\obj\Debug\net8.0-windows\winform-demo.genruntimeconfig.cache
+D:\net\wpf\winform-demo\obj\Debug\net8.0-windows\ref\winform-demo.dll

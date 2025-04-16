@@ -1,0 +1,4 @@
+D:\net\wpf\PointCloudViewer\obj\x64\Debug\net6.0-windows\PointCloudViewer.GeneratedMSBuildEditorConfig.editorconfig
+D:\net\wpf\PointCloudViewer\obj\x64\Debug\net6.0-windows\PointCloudViewer.AssemblyInfoInputs.cache
+D:\net\wpf\PointCloudViewer\obj\x64\Debug\net6.0-windows\PointCloudViewer.AssemblyInfo.cs
+D:\net\wpf\PointCloudViewer\obj\x64\Debug\net6.0-windows\PointCloudViewer.csproj.CoreCompileInputs.cache
